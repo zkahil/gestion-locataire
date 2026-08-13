@@ -1,0 +1,19 @@
+
+version: '3.8'
+services:
+  backend:
+    build: ../backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: secret
+    volumes:
+      - ../backend/database.sqlite:/app/database.sqlite
+      - ../backend/uploads:/app/uploads
+  web:
+    build: ../frontend-web
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
