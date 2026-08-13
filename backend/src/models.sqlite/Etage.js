@@ -8,7 +8,7 @@ class Etage {
         const params = [];
         
         if (filters.siteId) {
-            query += ' AND "siteId" = ?';
+            query += ' AND siteId = ?';
             params.push(filters.siteId);
         }
         if (filters.actif !== undefined) {
@@ -28,7 +28,7 @@ class Etage {
     static async create(data) {
         const db = await getDb();
         const result = await db.run(
-            `INSERT INTO etages ("siteId", nom, niveau, description) VALUES (?, ?, ?, ?)`,
+            `INSERT INTO etages (siteId, nom, niveau, description) VALUES (?, ?, ?, ?)`,
             [data.siteId, data.nom, data.niveau, data.description]
         );
         return result.lastID;
@@ -45,7 +45,7 @@ class Etage {
             }
         }
         if (fields.length === 0) return null;
-        fields.push('"updatedAt" = CURRENT_TIMESTAMP');
+        fields.push('updatedAt = CURRENT_TIMESTAMP');
         values.push(id);
         await db.run(`UPDATE etages SET ${fields.join(', ')} WHERE id = ?`, values);
         return true;

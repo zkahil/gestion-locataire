@@ -1,4 +1,4 @@
-// backend/src/models/Espace.js - Ajout de "siteId"
+// backend/src/models/Espace.js - Ajout de siteId
 const { getDb } = require('../config/database');
 
 class Espace {
@@ -10,7 +10,7 @@ class Espace {
         if (filters.etage) { query += ' AND etage = ?'; params.push(filters.etage); }
         if (filters.statut) { query += ' AND statut = ?'; params.push(filters.statut); }
         if (filters.type) { query += ' AND type = ?'; params.push(filters.type); }
-        if (filters.siteId) { query += ' AND "siteId" = ?'; params.push(filters.siteId); }
+        if (filters.siteId) { query += ' AND siteId = ?'; params.push(filters.siteId); }
         
         query += ' ORDER BY numero ASC';
         return db.all(query, params);
@@ -25,9 +25,9 @@ class Espace {
         const db = await getDb();
         const result = await db.run(
             `INSERT INTO espaces (
-                numero, designation, type, superficie, etage, "siteId",
-                "positionX", "positionY", largeur, hauteur, couleur,
-                "loyerReference", "chargesReference", statut
+                numero, designation, type, superficie, etage, siteId,
+                positionX, positionY, largeur, hauteur, couleur,
+                loyerReference, chargesReference, statut
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 data.numero, data.designation, data.type || 'bureau',
@@ -46,9 +46,9 @@ class Espace {
         const db = await getDb();
         const fields = [], values = [];
         const allowed = [
-            'numero','designation','type','superficie','etage','"siteId"',
-            '"positionX"','"positionY"','largeur','hauteur','couleur',
-            '"loyerReference"','"chargesReference"','statut','"contratActifId"'
+            'numero','designation','type','superficie','etage','siteId',
+            'positionX','positionY','largeur','hauteur','couleur',
+            'loyerReference','chargesReference','statut','contratActifId'
         ];
         for (const f of allowed) {
             if (data[f] !== undefined) {
@@ -57,7 +57,7 @@ class Espace {
             }
         }
         if (fields.length === 0) return null;
-        fields.push('"updatedAt" = CURRENT_TIMESTAMP');
+        fields.push('updatedAt = CURRENT_TIMESTAMP');
         values.push(id);
         await db.run(`UPDATE espaces SET ${fields.join(', ')} WHERE id = ?`, values);
         return true;

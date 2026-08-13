@@ -28,7 +28,7 @@ class Site {
     static async create(data) {
         const db = await getDb();
         const result = await db.run(
-            `INSERT INTO sites (nom, adresse, ville, "codePostal", pays, latitude, longitude, description) 
+            `INSERT INTO sites (nom, adresse, ville, codePostal, pays, latitude, longitude, description) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [data.nom, data.adresse, data.ville, data.codePostal, data.pays || 'Maroc', 
              data.latitude, data.longitude, data.description]
@@ -39,7 +39,7 @@ class Site {
     static async update(id, data) {
         const db = await getDb();
         const fields = [], values = [];
-        const allowed = ['nom','adresse','ville','"codePostal"','pays','latitude','longitude','description','actif'];
+        const allowed = ['nom','adresse','ville','codePostal','pays','latitude','longitude','description','actif'];
         for (const f of allowed) {
             if (data[f] !== undefined) {
                 fields.push(`${f} = ?`);
@@ -47,7 +47,7 @@ class Site {
             }
         }
         if (fields.length === 0) return null;
-        fields.push('"updatedAt" = CURRENT_TIMESTAMP');
+        fields.push('updatedAt = CURRENT_TIMESTAMP');
         values.push(id);
         await db.run(`UPDATE sites SET ${fields.join(', ')} WHERE id = ?`, values);
         return true;
@@ -61,12 +61,12 @@ class Site {
 
     static async getEspaces(id) {
         const db = await getDb();
-        return db.all('SELECT * FROM espaces WHERE "siteId" = ? ORDER BY numero', id);
+        return db.all('SELECT * FROM espaces WHERE siteId = ? ORDER BY numero', id);
     }
 
     static async getEtages(id) {
         const db = await getDb();
-        return db.all('SELECT * FROM etages WHERE "siteId" = ? ORDER BY niveau', id);
+        return db.all('SELECT * FROM etages WHERE siteId = ? ORDER BY niveau', id);
     }
 }
 

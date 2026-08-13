@@ -17,7 +17,9 @@ const siteRoutes = require('./routes/sites');
 const etageRoutes = require('./routes/etages');
 
 const app = express();
-initTables().catch(console.error);
+initTables().catch(err => {
+    console.error('Database initialization error:', err);
+});
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));

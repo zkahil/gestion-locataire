@@ -7,8 +7,8 @@ class Locataire {
         let query = 'SELECT * FROM locataires WHERE 1=1';
         const params = [];
         if (filters.type) { query += ' AND type = ?'; params.push(filters.type); }
-        if (filters.nom) { query += ' AND "nomComplet" LIKE ?'; params.push('%' + filters.nom + '%'); }
-        query += ' ORDER BY "nomComplet" ASC';
+        if (filters.nom) { query += ' AND nomComplet LIKE ?'; params.push('%' + filters.nom + '%'); }
+        query += ' ORDER BY nomComplet ASC';
         return db.all(query, params);
     }
     static async findById(id) {
@@ -18,7 +18,7 @@ class Locataire {
     static async create(data) {
         const db = await getDb();
         const result = await db.run(
-            'INSERT INTO locataires (type, "nomComplet", cin, ice, registreCommerce, identifiantFiscal, adresse, telephone, email, representantLegal, "creePar") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO locataires (type, nomComplet, cin, ice, registreCommerce, identifiantFiscal, adresse, telephone, email, representantLegal, creePar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [data.type, data.nomComplet, data.cin, data.ice, data.registreCommerce, data.identifiantFiscal, data.adresse, data.telephone, data.email, data.representantLegal, data.creePar]
         );
         return result.lastID;
@@ -26,7 +26,7 @@ class Locataire {
     static async update(id, data) {
         const db = await getDb();
         const fields = [], values = [];
-        const allowed = ['type','"nomComplet"','cin','ice','registreCommerce','identifiantFiscal','adresse','telephone','email','representantLegal'];
+        const allowed = ['type','nomComplet','cin','ice','registreCommerce','identifiantFiscal','adresse','telephone','email','representantLegal'];
         for (const f of allowed) {
             if (data[f] !== undefined) { fields.push(f + ' = ?'); values.push(data[f]); }
         }

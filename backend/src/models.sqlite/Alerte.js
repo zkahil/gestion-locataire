@@ -7,7 +7,7 @@ class Alerte {
         let query = 'SELECT * FROM alertes WHERE 1=1';
         const params = [];
         if (filters.lu !== undefined) { query += ' AND lu = ?'; params.push(filters.lu); }
-        if (filters.userId) { query += ' AND "userId" = ?'; params.push(filters.userId); }
+        if (filters.userId) { query += ' AND userId = ?'; params.push(filters.userId); }
         query += ' ORDER BY date DESC';
         return db.all(query, params);
     }
@@ -18,7 +18,7 @@ class Alerte {
     static async create(data) {
         const db = await getDb();
         const result = await db.run(
-            'INSERT INTO alertes (type, message, "userId") VALUES (?, ?, ?)',
+            'INSERT INTO alertes (type, message, userId) VALUES (?, ?, ?)',
             [data.type, data.message, data.userId]
         );
         return result.lastID;
