@@ -48,10 +48,26 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
     try {
         const espace = await Espace.findById(req.params.id);
-        if (!espace) return res.status(404).json({ message: 'Espace non trouve' });
-        await Espace.delete(req.params.id);
-        res.json({ success: true, message: 'Espace supprime' });
+        if (!espace) {
+            return res.status(404).json({ message: 'Espace non trouvé' });
+        }
+
+        // Supprimer l'espace (le modèle gère la transaction)
+        const result = await Espace.delete(req.params.id);
+        
+        res.json({ 
+            success: true, 
+            message: result.message || 'Espace supprimé avec succès',
+            contratResilie: result.contratResilie || false,
+            contratId: result.contratId || null
+        });
     } catch (error) {
+        console.error('❌ Erreur delete espace:', error);
+        if (error.message.includes('foreign key')) {
+            return res.status(400).json({ 
+                message: 'Cet espace est lié à des contrats ou factures. Veuillez d\'abord les supprimer.' 
+            });
+        }
         res.status(500).json({ message: error.message });
     }
 };

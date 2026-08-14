@@ -1,4 +1,4 @@
-// src/pages/Espaces.js - Version corrigée avec légende bien positionnée
+// src/pages/Espaces.js - Version améliorée avec gestion d'erreurs complète
 
 import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
@@ -8,6 +8,7 @@ import useAuthStore from '../store/authStore';
 const Espaces = () => {
     const { user } = useAuthStore();
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [data, setData] = useState([]);
     const [sites, setSites] = useState([]);
     const [etages, setEtages] = useState([]);
@@ -19,6 +20,7 @@ const Espaces = () => {
     const [etageModalOpen, setEtageModalOpen] = useState(false);
     const [editingSite, setEditingSite] = useState(null);
     const [editingEtage, setEditingEtage] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
     const svgRef = useRef(null);
 
     const isEditable = user?.role === 'admin' || user?.role === 'gestionnaire';
@@ -57,11 +59,15 @@ const Espaces = () => {
         description: ''
     });
 
+    const [formErrors, setFormErrors] = useState({});
+
     useEffect(() => {
         loadAllData();
     }, []);
 
     const loadAllData = async () => {
+        setLoading(true);
+        setError(null);
         try {
             const [sitesRes, espacesRes, etagesRes] = await Promise.all([
                 api.get('/api/sites'),
@@ -85,10 +91,13 @@ const Espaces = () => {
                 }
             }
         } catch (error) {
-            toast.error('Erreur de chargement');
-            console.error(error);
+            console.error('❌ Erreur de chargement:', error);
+            const errorMessage = error.response?.data?.message || 'Erreur de chargement des données';
+            setError(errorMessage);
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const getSpaceColor = (type) => {
@@ -127,11 +136,49 @@ const Espaces = () => {
         return icons[type] || 'fa-square';
     };
 
+    // Validation des formulaires
+    const validateEspaceForm = () => {
+        const errors = {};
+        if (!formData.numero.trim()) {
+            errors.numero = 'Le numéro est requis';
+        }
+        if (!formData.designation.trim()) {
+            errors.designation = 'La désignation est requise';
+        }
+        if (!formData.superficie || parseFloat(formData.superficie) <= 0) {
+            errors.superficie = 'La superficie doit être supérieure à 0';
+        }
+        if (!formData.siteId) {
+            errors.siteId = 'Le site est requis';
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const validateSiteForm = () => {
+        const errors = {};
+        if (!siteFormData.nom.trim()) {
+            errors.nom = 'Le nom du site est requis';
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const validateEtageForm = () => {
+        const errors = {};
+        if (!etageFormData.nom.trim()) {
+            errors.nom = 'Le nom de l\'étage est requis';
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const openModal = (espace = null) => {
         if (!isEditable) {
             toast.error('Vous n\'avez pas les droits pour modifier');
             return;
         }
+        setFormErrors({});
         if (espace) {
             setEditingEspace(espace);
             setFormData({
@@ -173,6 +220,7 @@ const Espaces = () => {
     const closeModal = () => {
         setModalOpen(false);
         setEditingEspace(null);
+        setFormErrors({});
     };
 
     const openSiteModal = (site = null) => {
@@ -180,6 +228,7 @@ const Espaces = () => {
             toast.error('Seul un administrateur peut gérer les sites');
             return;
         }
+        setFormErrors({});
         if (site) {
             setEditingSite(site);
             setSiteFormData({
@@ -211,6 +260,7 @@ const Espaces = () => {
     const closeSiteModal = () => {
         setSiteModalOpen(false);
         setEditingSite(null);
+        setFormErrors({});
     };
 
     const openEtageModal = (etage = null) => {
@@ -218,6 +268,7 @@ const Espaces = () => {
             toast.error('Vous n\'avez pas les droits pour modifier');
             return;
         }
+        setFormErrors({});
         if (etage) {
             setEditingEtage(etage);
             setEtageFormData({
@@ -239,26 +290,43 @@ const Espaces = () => {
     const closeEtageModal = () => {
         setEtageModalOpen(false);
         setEditingEtage(null);
+        setFormErrors({});
     };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        // Effacer l'erreur du champ
+        if (formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: '' }));
+        }
     };
 
     const handleSiteInputChange = (e) => {
         const { name, value } = e.target;
         setSiteFormData(prev => ({ ...prev, [name]: value }));
+        if (formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: '' }));
+        }
     };
 
     const handleEtageInputChange = (e) => {
         const { name, value } = e.target;
         setEtageFormData(prev => ({ ...prev, [name]: value }));
+        if (formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: '' }));
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!isEditable) return;
+        
+        if (!validateEspaceForm()) {
+            toast.error('Veuillez corriger les erreurs du formulaire');
+            return;
+        }
+
         try {
             const dataToSend = {
                 ...formData,
@@ -273,21 +341,32 @@ const Espaces = () => {
 
             if (editingEspace) {
                 await api.put(`/api/espaces/${editingEspace.id}`, dataToSend);
-                toast.success('Espace modifié avec succès');
+                toast.success('✅ Espace modifié avec succès');
             } else {
                 await api.post('/api/espaces', dataToSend);
-                toast.success('Espace créé avec succès');
+                toast.success('✅ Espace créé avec succès');
             }
             closeModal();
             loadAllData();
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Erreur lors de l\'enregistrement');
+            console.error('❌ Erreur d\'enregistrement:', error);
+            const message = error.response?.data?.message || 'Erreur lors de l\'enregistrement';
+            toast.error(message);
+            if (error.response?.data?.errors) {
+                setFormErrors(error.response.data.errors);
+            }
         }
     };
 
     const handleSiteSubmit = async (e) => {
         e.preventDefault();
         if (!isAdmin) return;
+        
+        if (!validateSiteForm()) {
+            toast.error('Veuillez corriger les erreurs du formulaire');
+            return;
+        }
+
         try {
             const dataToSend = {
                 ...siteFormData,
@@ -297,15 +376,15 @@ const Espaces = () => {
 
             if (editingSite) {
                 await api.put(`/api/sites/${editingSite.id}`, dataToSend);
-                toast.success('Site modifié avec succès');
+                toast.success('✅ Site modifié avec succès');
             } else {
                 await api.post('/api/sites', dataToSend);
-                toast.success('Site créé avec succès');
+                toast.success('✅ Site créé avec succès');
             }
             closeSiteModal();
-            setEditingSite(null);
             loadAllData();
         } catch (error) {
+            console.error('❌ Erreur site:', error);
             toast.error(error.response?.data?.message || 'Erreur lors de l\'enregistrement');
         }
     };
@@ -313,6 +392,12 @@ const Espaces = () => {
     const handleEtageSubmit = async (e) => {
         e.preventDefault();
         if (!isEditable) return;
+        
+        if (!validateEtageForm()) {
+            toast.error('Veuillez corriger les erreurs du formulaire');
+            return;
+        }
+
         try {
             const dataToSend = {
                 ...etageFormData,
@@ -322,28 +407,53 @@ const Espaces = () => {
 
             if (editingEtage) {
                 await api.put(`/api/etages/${editingEtage.id}`, dataToSend);
-                toast.success('Étage modifié avec succès');
+                toast.success('✅ Étage modifié avec succès');
             } else {
                 await api.post('/api/etages', dataToSend);
-                toast.success('Étage créé avec succès');
+                toast.success('✅ Étage créé avec succès');
             }
             closeEtageModal();
-            setEditingEtage(null);
             loadAllData();
         } catch (error) {
+            console.error('❌ Erreur étage:', error);
             toast.error(error.response?.data?.message || 'Erreur lors de l\'enregistrement');
         }
     };
 
     const deleteEspace = async (id) => {
         if (!isEditable) return;
-        if (!confirm('Supprimer cet espace ?')) return;
+        if (deletingId) return; // Empêcher les clics multiples
+        
+        // Confirmation avec message adapté
+        const espace = data.find(e => e.id === id);
+        const hasContrat = espace?.contratActifId;
+        const confirmMessage = hasContrat
+            ? `⚠️ Cet espace a un contrat actif (${espace.contratActifId}).\n\nLa suppression résiliera automatiquement le contrat.\n\nConfirmer la suppression ?`
+            : `Supprimer l'espace "${espace?.numero} - ${espace?.designation}" ?`;
+            
+        if (!window.confirm(confirmMessage)) return;
+
+        setDeletingId(id);
         try {
-            awaitapi.delete(`/api/espaces/${id}`);
-            toast.success('Espace supprimé');
+            const response = await api.delete(`/api/espaces/${id}`);
+            const message = response.data?.message || 'Espace supprimé avec succès';
+            toast.success(`✅ ${message}`);
             loadAllData();
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
+            console.error('❌ Erreur suppression:', error);
+            
+            // Gestion des erreurs spécifiques
+            let errorMessage = 'Erreur lors de la suppression';
+            if (error.response?.status === 400) {
+                errorMessage = error.response.data?.message || 'Impossible de supprimer cet espace car il est lié à d\'autres données';
+            } else if (error.response?.status === 403) {
+                errorMessage = 'Vous n\'avez pas les droits pour supprimer cet espace';
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            }
+            toast.error(`❌ ${errorMessage}`);
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -352,86 +462,76 @@ const Espaces = () => {
             toast.error('Seul un administrateur peut supprimer un site');
             return;
         }
-        if (!confirm('Supprimer ce site et tous ses espaces ?')) return;
+        const site = sites.find(s => s.id === id);
+        if (!window.confirm(`⚠️ Supprimer le site "${site?.nom}" et TOUS ses espaces ?\n\nCette action est irréversible !`)) return;
+        
         try {
-            awaitapi.delete(`/api/sites/${id}`);
-            toast.success('Site supprimé');
+            await api.delete(`/api/sites/${id}`);
+            toast.success('✅ Site supprimé avec succès');
             loadAllData();
         } catch (error) {
+            console.error('❌ Erreur suppression site:', error);
             toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
         }
     };
 
     const deleteEtage = async (id) => {
         if (!isEditable) return;
-        if (!confirm('Supprimer cet étage et tous ses espaces ?')) return;
+        const etage = etages.find(e => e.id === id);
+        if (!window.confirm(`⚠️ Supprimer l'étage "${etage?.nom}" et TOUS ses espaces ?\n\nCette action est irréversible !`)) return;
+        
         try {
-            awaitapi.delete(`/api/etages/${id}`);
-            toast.success('Étage supprimé');
+            await api.delete(`/api/etages/${id}`);
+            toast.success('✅ Étage supprimé avec succès');
             loadAllData();
         } catch (error) {
+            console.error('❌ Erreur suppression étage:', error);
             toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
         }
     };
 
-    // Fonction de capture PNG optimisée
     const captureGrid = () => {
         if (!svgRef.current) {
             toast.error('Erreur: impossible de capturer la grille');
             return;
         }
 
+        toast.loading('📸 Capture en cours...');
         try {
             const svgElement = svgRef.current;
-            
-            // Clone le SVG pour éviter les problèmes
             const cloneSvg = svgElement.cloneNode(true);
             
-            // Ajoute un fond blanc
             const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             rect.setAttribute("width", "100%");
             rect.setAttribute("height", "100%");
             rect.setAttribute("fill", "#ffffff");
             cloneSvg.insertBefore(rect, cloneSvg.firstChild);
             
-            // Récupère les dimensions du viewBox
             const viewBox = cloneSvg.getAttribute('viewBox') || '0 0 900 550';
             const viewBoxParts = viewBox.split(' ').map(Number);
             const width = viewBoxParts[2] || 900;
             const height = viewBoxParts[3] || 550;
             
-            // Crée un canvas haute résolution
             const scale = 3;
             const canvas = document.createElement('canvas');
             canvas.width = width * scale;
             canvas.height = height * scale;
             const ctx = canvas.getContext('2d');
             
-            // Fond blanc
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Sérialise le SVG
             const svgData = new XMLSerializer().serializeToString(cloneSvg);
-            
-            // Crée l'URL du blob SVG
-            const svgBlob = new Blob([svgData], { 
-                type: 'image/svg+xml;charset=utf-8' 
-            });
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
             const url = URL.createObjectURL(svgBlob);
             
-            // Charge l'image
             const img = new Image();
             
             img.onload = function() {
-                // Dessine l'image sur le canvas
                 ctx.drawImage(img, 0, 0, width * scale, height * scale);
                 URL.revokeObjectURL(url);
                 
-                // Convertit en PNG
                 const pngDataUrl = canvas.toDataURL('image/png', 1.0);
-                
-                // Télécharge
                 const link = document.createElement('a');
                 const dateStr = new Date().toISOString().split('T')[0];
                 const timeStr = new Date().toISOString().split('T')[1].split('.')[0].replace(/:/g, '-');
@@ -441,11 +541,13 @@ const Espaces = () => {
                 link.click();
                 document.body.removeChild(link);
                 
+                toast.dismiss();
                 toast.success('📸 Grille capturée avec succès !');
             };
             
             img.onerror = function(e) {
                 console.error('Erreur de chargement de l\'image:', e);
+                toast.dismiss();
                 toast.error('Erreur lors de la capture. Vérifiez la console.');
             };
             
@@ -453,6 +555,7 @@ const Espaces = () => {
             
         } catch (error) {
             console.error('Erreur de capture:', error);
+            toast.dismiss();
             toast.error('Erreur lors de la capture');
         }
     };
@@ -461,6 +564,37 @@ const Espaces = () => {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
                 <div className="loading-spinner"></div>
+                <span style={{ marginLeft: '12px', color: '#64748b' }}>Chargement des espaces...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div style={{ 
+                textAlign: 'center', 
+                padding: '60px 20px',
+                background: '#fff',
+                borderRadius: '12px',
+                border: '1px solid #fee2e2'
+            }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                <h3 style={{ color: '#dc2626', marginBottom: '8px' }}>Erreur de chargement</h3>
+                <p style={{ color: '#64748b' }}>{error}</p>
+                <button 
+                    onClick={loadAllData}
+                    style={{
+                        marginTop: '16px',
+                        padding: '8px 24px',
+                        background: '#1a5f7a',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Réessayer
+                </button>
             </div>
         );
     }
@@ -478,8 +612,12 @@ const Espaces = () => {
     const viewWidth = 900;
     const viewHeight = 550;
     
-    const maxX = Math.max(...filteredData.map(e => (e.positionX || 30) + (e.largeur || 120)), 100);
-    const maxY = Math.max(...filteredData.map(e => (e.positionY || 30) + (e.hauteur || 80)), 100);
+    const maxX = filteredData.length > 0 
+        ? Math.max(...filteredData.map(e => (e.positionX || 30) + (e.largeur || 120)), 100)
+        : 200;
+    const maxY = filteredData.length > 0 
+        ? Math.max(...filteredData.map(e => (e.positionY || 30) + (e.hauteur || 80)), 100)
+        : 200;
     
     const scaleX = (viewWidth - padding * 2) / (maxX + padding);
     const scaleY = (viewHeight - padding * 2 - 60) / (maxY + padding);
@@ -552,14 +690,19 @@ const Espaces = () => {
                                 border: '1px solid #cbd5e1',
                                 fontSize: '14px',
                                 background: '#fff',
-                                minWidth: '150px'
+                                minWidth: '150px',
+                                cursor: 'pointer'
                             }}
                         >
-                            {sites.map(site => (
-                                <option key={site.id} value={site.id}>
-                                    {site.nom} {site.ville ? `(${site.ville})` : ''}
-                                </option>
-                            ))}
+                            {sites.length === 0 ? (
+                                <option value="">Aucun site</option>
+                            ) : (
+                                sites.map(site => (
+                                    <option key={site.id} value={site.id}>
+                                        {site.nom} {site.ville ? `(${site.ville})` : ''}
+                                    </option>
+                                ))
+                            )}
                         </select>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -755,35 +898,37 @@ const Espaces = () => {
                             >
                                 <i className="fas fa-plus"></i> Ajouter un espace
                             </button>
-                            <button 
-                                className="btn btn-success"
-                                onClick={captureGrid}
-                                style={{ 
-                                    display: 'inline-flex', 
-                                    alignItems: 'center', 
-                                    gap: '8px', 
-                                    padding: '8px 20px', 
-                                    borderRadius: '8px', 
-                                    fontWeight: '500', 
-                                    fontSize: '14px', 
-                                    border: 'none', 
-                                    cursor: 'pointer', 
-                                    background: '#16a34a', 
-                                    color: '#fff',
-                                    transition: 'all 0.2s'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#15803d'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = '#16a34a'}
-                                title="Capturer la grille en PNG haute résolution"
-                            >
-                                <i className="fas fa-camera"></i> Capturer PNG
-                            </button>
+                            {filteredData.length > 0 && (
+                                <button 
+                                    className="btn btn-success"
+                                    onClick={captureGrid}
+                                    style={{ 
+                                        display: 'inline-flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        padding: '8px 20px', 
+                                        borderRadius: '8px', 
+                                        fontWeight: '500', 
+                                        fontSize: '14px', 
+                                        border: 'none', 
+                                        cursor: 'pointer', 
+                                        background: '#16a34a', 
+                                        color: '#fff',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#15803d'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = '#16a34a'}
+                                    title="Capturer la grille en PNG haute résolution"
+                                >
+                                    <i className="fas fa-camera"></i> Capturer PNG
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
             </div>
 
-            {/* Plan SVG avec grille dynamique - LÉGENDE CORRIGÉE */}
+            {/* Plan SVG avec grille dynamique */}
             <div className="card" style={{ 
                 background: '#fff', 
                 borderRadius: '12px', 
@@ -816,154 +961,169 @@ const Espaces = () => {
                     overflow: 'auto',
                     position: 'relative'
                 }}>
-                    <svg 
-                        ref={svgRef}
-                        width="100%" 
-                        height={viewHeight} 
-                        viewBox={`0 0 ${viewWidth} ${viewHeight}`}
-                        xmlns="http://www.w3.org/2000/svg"
-                        version="1.1"
-                        style={{ background: '#fafbfc', borderRadius: '6px', display: 'block' }}
-                    >
-                        <defs>
-                            <pattern id="grid_espaces" width={scaledGridSize} height={scaledGridSize} patternUnits="userSpaceOnUse">
-                                <path d={`M ${scaledGridSize} 0 L 0 0 0 ${scaledGridSize}`} fill="none" stroke="#e2e8f0" strokeWidth="0.5"/>
-                            </pattern>
-                            <pattern id="grid_espaces_light" width={scaledGridSize * 5} height={scaledGridSize * 5} patternUnits="userSpaceOnUse">
-                                <path d={`M ${scaledGridSize * 5} 0 L 0 0 0 ${scaledGridSize * 5}`} fill="none" stroke="#e2e8f0" strokeWidth="1" strokeOpacity="0.3"/>
-                            </pattern>
-                        </defs>
-                        <rect width={viewWidth} height={viewHeight} fill="url(#grid_espaces_light)" />
-                        <rect width={viewWidth} height={viewHeight} fill="url(#grid_espaces)" />
-                        <line x1="0" y1={viewHeight - 30} x2={viewWidth} y2={viewHeight - 30} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4,4" />
-                        
-                        {/* Axe X */}
-                        <line x1="0" y1={viewHeight - 30} x2={viewWidth} y2={viewHeight - 30} stroke="#94a3b8" strokeWidth="2" />
-                        <line x1="0" y1={viewHeight - 35} x2="0" y2={viewHeight - 25} stroke="#94a3b8" strokeWidth="2" />
-                        <text x="4" y={viewHeight - 10} fontSize="9" fontWeight="700" fill="#475569">X</text>
-                        
-                        {Array.from({ length: Math.ceil(viewWidth / scaledGridSize) + 1 }, (_, i) => i).map(i => {
-                            const x = i * scaledGridSize + 20;
-                            const value = i * gridSize;
-                            if (x < viewWidth - 20) {
+                    {filteredData.length === 0 ? (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: viewHeight,
+                            color: '#94a3b8'
+                        }}>
+                            <i className="fas fa-door-open" style={{ fontSize: '48px', marginBottom: '16px' }}></i>
+                            <p style={{ fontSize: '16px' }}>Aucun espace à cet étage</p>
+                            <p style={{ fontSize: '13px' }}>Ajoutez un espace pour commencer</p>
+                        </div>
+                    ) : (
+                        <svg 
+                            ref={svgRef}
+                            width="100%" 
+                            height={viewHeight} 
+                            viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+                            xmlns="http://www.w3.org/2000/svg"
+                            version="1.1"
+                            style={{ background: '#fafbfc', borderRadius: '6px', display: 'block' }}
+                        >
+                            <defs>
+                                <pattern id="grid_espaces" width={scaledGridSize} height={scaledGridSize} patternUnits="userSpaceOnUse">
+                                    <path d={`M ${scaledGridSize} 0 L 0 0 0 ${scaledGridSize}`} fill="none" stroke="#e2e8f0" strokeWidth="0.5"/>
+                                </pattern>
+                                <pattern id="grid_espaces_light" width={scaledGridSize * 5} height={scaledGridSize * 5} patternUnits="userSpaceOnUse">
+                                    <path d={`M ${scaledGridSize * 5} 0 L 0 0 0 ${scaledGridSize * 5}`} fill="none" stroke="#e2e8f0" strokeWidth="1" strokeOpacity="0.3"/>
+                                </pattern>
+                            </defs>
+                            <rect width={viewWidth} height={viewHeight} fill="url(#grid_espaces_light)" />
+                            <rect width={viewWidth} height={viewHeight} fill="url(#grid_espaces)" />
+                            <line x1="0" y1={viewHeight - 30} x2={viewWidth} y2={viewHeight - 30} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4,4" />
+                            
+                            {/* Axe X */}
+                            <line x1="0" y1={viewHeight - 30} x2={viewWidth} y2={viewHeight - 30} stroke="#94a3b8" strokeWidth="2" />
+                            <line x1="0" y1={viewHeight - 35} x2="0" y2={viewHeight - 25} stroke="#94a3b8" strokeWidth="2" />
+                            <text x="4" y={viewHeight - 10} fontSize="9" fontWeight="700" fill="#475569">X</text>
+                            
+                            {Array.from({ length: Math.ceil(viewWidth / scaledGridSize) + 1 }, (_, i) => i).map(i => {
+                                const x = i * scaledGridSize + 20;
+                                const value = i * gridSize;
+                                if (x < viewWidth - 20) {
+                                    return (
+                                        <g key={`x-${i}`}>
+                                            <line x1={x} y1={viewHeight - 34} x2={x} y2={viewHeight - 26} stroke="#94a3b8" strokeWidth="1.5" />
+                                            <text x={x} y={viewHeight - 12} fontSize="7" fill="#94a3b8" textAnchor="middle" fontFamily="monospace">{value}</text>
+                                        </g>
+                                    );
+                                }
+                                return null;
+                            })}
+                            
+                            {/* Axe Y */}
+                            <line x1="30" y1="0" x2="30" y2={viewHeight - 30} stroke="#94a3b8" strokeWidth="2" />
+                            <line x1="25" y1="0" x2="35" y2="0" stroke="#94a3b8" strokeWidth="2" />
+                            <text x="16" y="10" fontSize="9" fontWeight="700" fill="#475569">Y</text>
+                            
+                            {Array.from({ length: Math.ceil(viewHeight / scaledGridSize) + 1 }, (_, i) => i).map(i => {
+                                const y = i * scaledGridSize + 20;
+                                const value = i * gridSize;
+                                if (y < viewHeight - 40) {
+                                    return (
+                                        <g key={`y-${i}`}>
+                                            <line x1="26" y1={y} x2="34" y2={y} stroke="#94a3b8" strokeWidth="1.5" />
+                                            <text x="18" y={y + 3} fontSize="7" fill="#94a3b8" textAnchor="end" fontFamily="monospace">{value}</text>
+                                        </g>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            <text x="30" y={viewHeight - 12} fontSize="8" fill="#ef4444" textAnchor="middle" fontWeight="700">O</text>
+
+                            {/* Espaces */}
+                            {filteredData.map(e => {
+                                const color = getSpaceColor(e.type);
+                                const isCommun = e.statut === 'commun';
+                                const posX = (e.positionX || 30) * scale + 20;
+                                const posY = (e.positionY || 30) * scale + 20;
+                                const width = Math.max((e.largeur || 120) * scale, 15);
+                                const height = Math.max((e.hauteur || 80) * scale, 15);
+                                const isOccupied = e.statut === 'occupe';
+                                const isAvailable = e.statut === 'disponible';
+                                
+                                if (posX > viewWidth || posY > viewHeight) return null;
+                                
                                 return (
-                                    <g key={`x-${i}`}>
-                                        <line x1={x} y1={viewHeight - 34} x2={x} y2={viewHeight - 26} stroke="#94a3b8" strokeWidth="1.5" />
-                                        <text x={x} y={viewHeight - 12} fontSize="7" fill="#94a3b8" textAnchor="middle" fontFamily="monospace">{value}</text>
+                                    <g key={e.id}>
+                                        <rect x={posX + 2} y={posY + 2} width={width} height={height} rx="4" fill="rgba(0,0,0,0.08)" />
+                                        <rect x={posX} y={posY} width={width} height={height} rx="6" fill={color} stroke={isOccupied ? '#f59e0b' : isAvailable ? '#22c55e' : '#94a3b8'} strokeWidth={isCommun ? '1.5' : '2.5'} strokeDasharray={isCommun ? '4,4' : 'none'} opacity={isCommun ? '0.6' : '0.9'} style={{ cursor: isEditable ? 'pointer' : 'default' }} onClick={() => isEditable && openModal(e)} />
+                                        {width > 40 && height > 30 && (
+                                            <>
+                                                <circle cx={posX + 14} cy={posY + 14} r="9" fill="rgba(255,255,255,0.9)" stroke={color} strokeWidth="1.5" />
+                                                <text x={posX + 14} y={posY + 18} fontSize="9" fontWeight="700" fill={color} textAnchor="middle">
+                                                    {((e.designation || e.type || '?').trim().charAt(0) || '?').toUpperCase()}
+                                                </text>
+                                                <text x={posX + 28} y={posY + 16} fontSize="9" fontWeight="700" fill="#1e293b">{e.numero}</text>
+                                                <text x={posX + 28} y={posY + 30} fontSize="7" fill="#334155">{e.designation}</text>
+                                                {!isCommun && (
+                                                    <>
+                                                        <text x={posX + 28} y={posY + 44} fontSize="7" fill="#475569">{e.superficie || 0} m²</text>
+                                                        <text x={posX + 28} y={posY + 56} fontSize="7" fill="#475569">{e.loyerReference || 0} MAD</text>
+                                                    </>
+                                                )}
+                                                {isCommun && (
+                                                    <text x={posX + 28} y={posY + 44} fontSize="7" fill="#64748b">Commun</text>
+                                                )}
+                                            </>
+                                        )}
+                                        <circle cx={posX + width - 10} cy={posY + 10} r="4" fill={isOccupied ? '#f59e0b' : isAvailable ? '#22c55e' : '#94a3b8'} />
                                     </g>
                                 );
-                            }
-                            return null;
-                        })}
-                        
-                        {/* Axe Y */}
-                        <line x1="30" y1="0" x2="30" y2={viewHeight - 30} stroke="#94a3b8" strokeWidth="2" />
-                        <line x1="25" y1="0" x2="35" y2="0" stroke="#94a3b8" strokeWidth="2" />
-                        <text x="16" y="10" fontSize="9" fontWeight="700" fill="#475569">Y</text>
-                        
-                        {Array.from({ length: Math.ceil(viewHeight / scaledGridSize) + 1 }, (_, i) => i).map(i => {
-                            const y = i * scaledGridSize + 20;
-                            const value = i * gridSize;
-                            if (y < viewHeight - 40) {
-                                return (
-                                    <g key={`y-${i}`}>
-                                        <line x1="26" y1={y} x2="34" y2={y} stroke="#94a3b8" strokeWidth="1.5" />
-                                        <text x="18" y={y + 3} fontSize="7" fill="#94a3b8" textAnchor="end" fontFamily="monospace">{value}</text>
-                                    </g>
-                                );
-                            }
-                            return null;
-                        })}
-
-                        <text x="30" y={viewHeight - 12} fontSize="8" fill="#ef4444" textAnchor="middle" fontWeight="700">O</text>
-
-                        {/* Espaces */}
-                        {filteredData.map(e => {
-                            const color = getSpaceColor(e.type);
-                            const isCommun = e.statut === 'commun';
-                            const posX = (e.positionX || 30) * scale + 20;
-                            const posY = (e.positionY || 30) * scale + 20;
-                            const width = Math.max((e.largeur || 120) * scale, 15);
-                            const height = Math.max((e.hauteur || 80) * scale, 15);
-                            const isOccupied = e.statut === 'occupe';
-                            const isAvailable = e.statut === 'disponible';
+                            })}
                             
-                            if (posX > viewWidth || posY > viewHeight) return null;
-                            
-                            return (
-                                <g key={e.id}>
-                                    <rect x={posX + 2} y={posY + 2} width={width} height={height} rx="4" fill="rgba(0,0,0,0.08)" />
-                                    <rect x={posX} y={posY} width={width} height={height} rx="6" fill={color} stroke={isOccupied ? '#f59e0b' : isAvailable ? '#22c55e' : '#94a3b8'} strokeWidth={isCommun ? '1.5' : '2.5'} strokeDasharray={isCommun ? '4,4' : 'none'} opacity={isCommun ? '0.6' : '0.9'} style={{ cursor: isEditable ? 'pointer' : 'default' }} onClick={() => isEditable && openModal(e)} />
-                                    {width > 40 && height > 30 && (
-                                        <>
-                                            <circle cx={posX + 14} cy={posY + 14} r="9" fill="rgba(255,255,255,0.9)" stroke={color} strokeWidth="1.5" />
-                                            <text x={posX + 14} y={posY + 18} fontSize="9" fontWeight="700" fill={color} textAnchor="middle">
-                                                {((e.designation || e.type || '?').trim().charAt(0) || '?').toUpperCase()}
-                                            </text>
-                                            <text x={posX + 28} y={posY + 16} fontSize="9" fontWeight="700" fill="#1e293b">{e.numero}</text>
-                                            <text x={posX + 28} y={posY + 30} fontSize="7" fill="#334155">{e.designation}</text>
-                                            {!isCommun && (
-                                                <>
-                                                    <text x={posX + 28} y={posY + 44} fontSize="7" fill="#475569">{e.superficie || 0} m²</text>
-                                                    <text x={posX + 28} y={posY + 56} fontSize="7" fill="#475569">{e.loyerReference || 0} MAD</text>
-                                                </>
-                                            )}
-                                            {isCommun && (
-                                                <text x={posX + 28} y={posY + 44} fontSize="7" fill="#64748b">Commun</text>
-                                            )}
-                                        </>
-                                    )}
-                                    <circle cx={posX + width - 10} cy={posY + 10} r="4" fill={isOccupied ? '#f59e0b' : isAvailable ? '#22c55e' : '#94a3b8'} />
+                            {/* Légende */}
+                            <g transform={`translate(15, ${viewHeight - 195})`}>
+                                <rect x="0" y="0" width="195" height="180" rx="8" fill="rgba(255,255,255,0.97)" stroke="#e2e8f0" strokeWidth="1.5" />
+                                <text x="12" y="20" fontSize="11" fontWeight="700" fill="#1a5f7a">📐 Légende</text>
+                                <line x1="12" y1="26" x2="183" y2="26" stroke="#e2e8f0" strokeWidth="1" />
+                                <g transform="translate(12, 32)">
+                                    <circle cx="0" cy="10" r="5" fill="#f59e0b" />
+                                    <text x="14" y="14" fontSize="9" fill="#334155">Occupé ({occupes})</text>
                                 </g>
-                            );
-                        })}
-                        
-                        {/* LÉGENDE CORRIGÉE - Positionnée à gauche sans coordonnées négatives */}
-                        <g transform={`translate(15, ${viewHeight - 195})`}>
-                            <rect x="0" y="0" width="195" height="180" rx="8" fill="rgba(255,255,255,0.97)" stroke="#e2e8f0" strokeWidth="1.5" />
-                            <text x="12" y="20" fontSize="11" fontWeight="700" fill="#1a5f7a">📐 Légende</text>
-                            <line x1="12" y1="26" x2="183" y2="26" stroke="#e2e8f0" strokeWidth="1" />
-                            <g transform="translate(12, 32)">
-                                <circle cx="0" cy="10" r="5" fill="#f59e0b" />
-                                <text x="14" y="14" fontSize="9" fill="#334155">Occupé ({occupes})</text>
+                                <g transform="translate(12, 50)">
+                                    <circle cx="0" cy="10" r="5" fill="#22c55e" />
+                                    <text x="14" y="14" fontSize="9" fill="#334155">Disponible ({disponibles})</text>
+                                </g>
+                                <g transform="translate(12, 68)">
+                                    <circle cx="0" cy="10" r="5" fill="#94a3b8" />
+                                    <text x="14" y="14" fontSize="9" fill="#334155">Travaux ({travaux})</text>
+                                </g>
+                                <g transform="translate(12, 86)">
+                                    <circle cx="0" cy="10" r="5" fill="#94a3b8" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="2,2" />
+                                    <text x="14" y="14" fontSize="9" fill="#334155">Commun ({communs})</text>
+                                </g>
+                                <line x1="12" y1="100" x2="183" y2="100" stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="3,3" />
+                                <text x="12" y="116" fontSize="8" fill="#94a3b8">Total: {totalEspaces}</text>
+                                <text x="95" y="116" fontSize="8" fill="#94a3b8">Taux occ: {totalEspaces > 0 ? Math.round((occupes / totalEspaces) * 100) : 0}%</text>
+                                <text x="12" y="130" fontSize="8" fill="#94a3b8">Grille: {gridSize}px</text>
+                                <text x="95" y="130" fontSize="8" fill="#94a3b8">Échelle: {scale.toFixed(2)}x</text>
+                                <text x="12" y="144" fontSize="8" fill="#94a3b8" fontStyle="italic">Étage: {currentEtage || 'RC'}</text>
+                                <text x="95" y="144" fontSize="8" fill="#94a3b8" fontStyle="italic">Site: {currentSite?.nom || 'N/A'}</text>
+                                <text x="12" y="158" fontSize="8" fill="#94a3b8">Cliquez sur un espace pour modifier</text>
                             </g>
-                            <g transform="translate(12, 50)">
-                                <circle cx="0" cy="10" r="5" fill="#22c55e" />
-                                <text x="14" y="14" fontSize="9" fill="#334155">Disponible ({disponibles})</text>
+                            
+                            {/* Compteur en haut à droite */}
+                            <g>
+                                <rect x={viewWidth - 160} y="10" width="150" height="36" rx="6" fill="rgba(255,255,255,0.95)" stroke="#e2e8f0" strokeWidth="1" />
+                                <text x={viewWidth - 85} y="28" fontSize="10" fontWeight="600" fill="#1a5f7a" textAnchor="middle">
+                                    {filteredData.length} espaces
+                                </text>
+                                <text x={viewWidth - 85} y="40" fontSize="8" fill="#94a3b8" textAnchor="middle">
+                                    {occupes} occupés · {disponibles} disponibles
+                                </text>
                             </g>
-                            <g transform="translate(12, 68)">
-                                <circle cx="0" cy="10" r="5" fill="#94a3b8" />
-                                <text x="14" y="14" fontSize="9" fill="#334155">Travaux ({travaux})</text>
-                            </g>
-                            <g transform="translate(12, 86)">
-                                <circle cx="0" cy="10" r="5" fill="#94a3b8" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="2,2" />
-                                <text x="14" y="14" fontSize="9" fill="#334155">Commun ({communs})</text>
-                            </g>
-                            <line x1="12" y1="100" x2="183" y2="100" stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="3,3" />
-                            <text x="12" y="116" fontSize="8" fill="#94a3b8">Total: {totalEspaces}</text>
-                            <text x="95" y="116" fontSize="8" fill="#94a3b8">Taux occ: {totalEspaces > 0 ? Math.round((occupes / totalEspaces) * 100) : 0}%</text>
-                            <text x="12" y="130" fontSize="8" fill="#94a3b8">Grille: {gridSize}px</text>
-                            <text x="95" y="130" fontSize="8" fill="#94a3b8">Échelle: {scale.toFixed(2)}x</text>
-                            <text x="12" y="144" fontSize="8" fill="#94a3b8" fontStyle="italic">Étage: {currentEtage || 'RC'}</text>
-                            <text x="95" y="144" fontSize="8" fill="#94a3b8" fontStyle="italic">Site: {currentSite?.nom || 'N/A'}</text>
-                            <text x="12" y="158" fontSize="8" fill="#94a3b8">Cliquez sur un espace pour modifier</text>
-                        </g>
-                        
-                        {/* Compteur en haut à droite */}
-                        <g>
-                            <rect x={viewWidth - 160} y="10" width="150" height="36" rx="6" fill="rgba(255,255,255,0.95)" stroke="#e2e8f0" strokeWidth="1" />
-                            <text x={viewWidth - 85} y="28" fontSize="10" fontWeight="600" fill="#1a5f7a" textAnchor="middle">
-                                {filteredData.length} espaces
-                            </text>
-                            <text x={viewWidth - 85} y="40" fontSize="8" fill="#94a3b8" textAnchor="middle">
-                                {occupes} occupés · {disponibles} disponibles
-                            </text>
-                        </g>
-                    </svg>
+                        </svg>
+                    )}
                 </div>
             </div>
 
-            {/* Cartes des espaces - Gardez votre code existant */}
+            {/* Cartes des espaces */}
             <div className="espace-grid" style={{ 
                 display: 'grid', 
                 gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
@@ -973,6 +1133,8 @@ const Espaces = () => {
                     const icon = getSpaceIcon(e.type);
                     const color = getSpaceColor(e.type);
                     const isCommun = e.statut === 'commun';
+                    const isDeleting = deletingId === e.id;
+                    
                     return (
                         <div 
                             key={e.id} 
@@ -988,24 +1150,40 @@ const Espaces = () => {
                                 flexDirection: 'column',
                                 cursor: isEditable ? 'pointer' : 'default',
                                 transition: 'all 0.3s ease',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                                opacity: isDeleting ? 0.5 : 1,
+                                pointerEvents: isDeleting ? 'none' : 'auto'
                             }}
                             onMouseEnter={(el) => {
-                                if (isEditable) {
+                                if (isEditable && !isDeleting) {
                                     el.currentTarget.style.borderColor = '#1a5f7a';
                                     el.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.08)';
                                     el.currentTarget.style.transform = 'translateY(-4px)';
                                 }
                             }}
                             onMouseLeave={(el) => {
-                                if (isEditable) {
+                                if (isEditable && !isDeleting) {
                                     el.currentTarget.style.borderColor = e.statut === 'occupe' ? '#f59e0b' : e.statut === 'disponible' ? '#22c55e' : '#94a3b8';
                                     el.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
                                     el.currentTarget.style.transform = 'translateY(0)';
                                 }
                             }}
-                            onClick={() => isEditable && openModal(e)}
+                            onClick={() => isEditable && !isDeleting && openModal(e)}
                         >
+                            {isDeleting && (
+                                <div style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'rgba(255,255,255,0.7)',
+                                    borderRadius: '12px',
+                                    zIndex: 10
+                                }}>
+                                    <div className="loading-spinner" style={{ width: '24px', height: '24px' }}></div>
+                                </div>
+                            )}
                             <span 
                                 className={`espace-status ${e.statut}`} 
                                 style={{ 
@@ -1052,27 +1230,19 @@ const Espaces = () => {
                             <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
                                 Étage: {e.etage || 'RC'} · Site: {sites.find(s => s.id === e.siteId)?.nom || 'N/A'}
                             </div>
-                            {e.statut === 'occupe' && (
+                            {e.contratActifId && (
                                 <div style={{ 
-                                    fontSize: '12px', 
-                                    color: '#475569', 
-                                    marginTop: '8px', 
-                                    background: '#f1f5f9', 
-                                    padding: '4px 10px', 
-                                    borderRadius: '6px',
-                                    display: 'inline-block'
+                                    fontSize: '11px', 
+                                    color: '#f59e0b', 
+                                    marginTop: '4px',
+                                    background: '#fef9c3',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    display: 'inline-block',
+                                    width: 'fit-content'
                                 }}>
-                                    <i className="fas fa-user" style={{ marginRight: '4px' }}></i> Occupé
-                                </div>
-                            )}
-                            {e.statut === 'disponible' && (
-                                <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '8px' }}>
-                                    <i className="fas fa-check-circle" style={{ marginRight: '4px' }}></i> Disponible
-                                </div>
-                            )}
-                            {e.statut === 'travaux' && (
-                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-                                    <i className="fas fa-wrench" style={{ marginRight: '4px' }}></i> Travaux
+                                    <i className="fas fa-file-contract" style={{ marginRight: '4px' }}></i>
+                                    Contrat #{e.contratActifId}
                                 </div>
                             )}
                             <div style={{ 
@@ -1083,7 +1253,7 @@ const Espaces = () => {
                                 borderTop: '1px solid #f1f5f9',
                                 marginTop: '12px'
                             }}>
-                                {isEditable && (
+                                {isEditable && !isDeleting && (
                                     <>
                                         <button 
                                             className="btn btn-xs btn-outline" 
@@ -1103,46 +1273,44 @@ const Espaces = () => {
                                             <i className="fas fa-edit"></i>
                                         </button>
                                         {!isCommun && (
-                                            <>
-                                                <button 
-                                                    className="btn btn-xs btn-danger" 
-                                                    style={{ 
-                                                        padding: '4px 10px', 
-                                                        fontSize: '12px', 
-                                                        background: '#ef4444', 
-                                                        color: '#fff', 
-                                                        border: 'none', 
-                                                        borderRadius: '6px', 
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                    onClick={(el) => { el.stopPropagation(); deleteEspace(e.id); }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
-                                                >
-                                                    <i className="fas fa-trash"></i>
-                                                </button>
-                                                {e.statut === 'disponible' && (
-                                                    <button 
-                                                        className="btn btn-xs btn-success" 
-                                                        style={{ 
-                                                            padding: '4px 10px', 
-                                                            fontSize: '12px', 
-                                                            background: '#16a34a', 
-                                                            color: '#fff', 
-                                                            border: 'none', 
-                                                            borderRadius: '6px', 
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s'
-                                                        }}
-                                                        onClick={(el) => { el.stopPropagation(); toast.success('Attribution à venir'); }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.background = '#15803d'}
-                                                        onMouseLeave={(e) => e.currentTarget.style.background = '#16a34a'}
-                                                    >
-                                                        <i className="fas fa-user-plus"></i>
-                                                    </button>
-                                                )}
-                                            </>
+                                            <button 
+                                                className="btn btn-xs btn-danger" 
+                                                style={{ 
+                                                    padding: '4px 10px', 
+                                                    fontSize: '12px', 
+                                                    background: '#ef4444', 
+                                                    color: '#fff', 
+                                                    border: 'none', 
+                                                    borderRadius: '6px', 
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onClick={(el) => { el.stopPropagation(); deleteEspace(e.id); }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
+                                            >
+                                                <i className="fas fa-trash"></i>
+                                            </button>
+                                        )}
+                                        {e.statut === 'disponible' && (
+                                            <button 
+                                                className="btn btn-xs btn-success" 
+                                                style={{ 
+                                                    padding: '4px 10px', 
+                                                    fontSize: '12px', 
+                                                    background: '#16a34a', 
+                                                    color: '#fff', 
+                                                    border: 'none', 
+                                                    borderRadius: '6px', 
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onClick={(el) => { el.stopPropagation(); toast.success('Attribution à venir'); }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = '#15803d'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = '#16a34a'}
+                                            >
+                                                <i className="fas fa-user-plus"></i>
+                                            </button>
                                         )}
                                     </>
                                 )}
@@ -1166,44 +1334,162 @@ const Espaces = () => {
                 )}
             </div>
 
-            {/* Modals - Gardez votre code existant */}
+            {/* Modals - avec gestion d'erreurs améliorée */}
             {/* Modal Espace */}
             {modalOpen && isEditable && (
                 <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem', animation: 'fadeIn 0.2s' }}>
                     <div className="modal" style={{ background: '#fff', borderRadius: '12px', maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', animation: 'slideUp 0.25s ease' }}>
                         <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h2 style={{ fontSize: '20px', fontWeight: '600' }}>{editingEspace ? 'Modifier un espace' : 'Ajouter un espace'}</h2>
-                            <button className="close" onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8', padding: '0 4px' }} onMouseEnter={(e) => e.currentTarget.style.color = '#1e293b'} onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}>&times;</button>
+                            <button className="close" onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8', padding: '0 4px' }}>&times;</button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Numéro</label><input type="text" name="numero" value={formData.numero} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} required /></div>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Désignation</label><input type="text" name="designation" value={formData.designation} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} required /></div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Numéro *</label>
+                                    <input 
+                                        type="text" 
+                                        name="numero" 
+                                        value={formData.numero} 
+                                        onChange={handleInputChange} 
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '8px 12px', 
+                                            border: `1px solid ${formErrors.numero ? '#ef4444' : '#cbd5e1'}`, 
+                                            borderRadius: '6px', 
+                                            fontSize: '14px' 
+                                        }} 
+                                        required 
+                                    />
+                                    {formErrors.numero && <span style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.numero}</span>}
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Désignation *</label>
+                                    <input 
+                                        type="text" 
+                                        name="designation" 
+                                        value={formData.designation} 
+                                        onChange={handleInputChange} 
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '8px 12px', 
+                                            border: `1px solid ${formErrors.designation ? '#ef4444' : '#cbd5e1'}`, 
+                                            borderRadius: '6px', 
+                                            fontSize: '14px' 
+                                        }} 
+                                        required 
+                                    />
+                                    {formErrors.designation && <span style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.designation}</span>}
+                                </div>
                             </div>
                             <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Type</label><select name="type" value={formData.type} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}><option value="boutique">Boutique</option><option value="depot">Dépôt</option><option value="bureau">Bureau</option><option value="bureau_directeur">Bureau Directeur</option><option value="bureau_open">Open Space</option><option value="salle_reunion">Salle de réunion</option><option value="stand">Stand</option><option value="espace_vert">Espace vert</option><option value="couloir">Couloir</option><option value="ascenseur">Ascenseur</option><option value="porte">Porte</option><option value="commun">Autre commun</option></select></div>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Superficie (m²)</label><input type="number" name="superficie" value={formData.superficie} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Type</label>
+                                    <select name="type" value={formData.type} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}>
+                                        <option value="boutique">Boutique</option>
+                                        <option value="depot">Dépôt</option>
+                                        <option value="bureau">Bureau</option>
+                                        <option value="bureau_directeur">Bureau Directeur</option>
+                                        <option value="bureau_open">Open Space</option>
+                                        <option value="salle_reunion">Salle de réunion</option>
+                                        <option value="stand">Stand</option>
+                                        <option value="espace_vert">Espace vert</option>
+                                        <option value="couloir">Couloir</option>
+                                        <option value="ascenseur">Ascenseur</option>
+                                        <option value="porte">Porte</option>
+                                        <option value="commun">Autre commun</option>
+                                    </select>
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Superficie (m²) *</label>
+                                    <input 
+                                        type="number" 
+                                        name="superficie" 
+                                        value={formData.superficie} 
+                                        onChange={handleInputChange} 
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '8px 12px', 
+                                            border: `1px solid ${formErrors.superficie ? '#ef4444' : '#cbd5e1'}`, 
+                                            borderRadius: '6px', 
+                                            fontSize: '14px' 
+                                        }} 
+                                        step="0.01"
+                                        min="0"
+                                    />
+                                    {formErrors.superficie && <span style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.superficie}</span>}
+                                </div>
                             </div>
                             <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Loyer référence (MAD)</label><input type="number" name="loyerReference" value={formData.loyerReference} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Statut</label><select name="statut" value={formData.statut} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}><option value="disponible">Disponible</option><option value="occupe">Occupé</option><option value="travaux">Travaux</option><option value="commun">Commun</option><option value="reserve">Réservé</option><option value="indisponible">Indisponible</option></select></div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Loyer référence (MAD)</label>
+                                    <input type="number" name="loyerReference" value={formData.loyerReference} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} step="0.01" min="0" />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Statut</label>
+                                    <select name="statut" value={formData.statut} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}>
+                                        <option value="disponible">Disponible</option>
+                                        <option value="occupe">Occupé</option>
+                                        <option value="travaux">Travaux</option>
+                                        <option value="commun">Commun</option>
+                                        <option value="reserve">Réservé</option>
+                                        <option value="indisponible">Indisponible</option>
+                                    </select>
+                                </div>
                             </div>
                             <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Étage</label><select name="etage" value={formData.etage} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}>{siteEtages.map(etage => <option key={etage.id} value={etage.nom}>{etage.nom}</option>)}</select></div>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Site</label><select name="siteId" value={formData.siteId} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}>{sites.map(site => <option key={site.id} value={site.id}>{site.nom}</option>)}</select></div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Étage</label>
+                                    <select name="etage" value={formData.etage} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }}>
+                                        {siteEtages.map(etage => <option key={etage.id} value={etage.nom}>{etage.nom}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Site *</label>
+                                    <select 
+                                        name="siteId" 
+                                        value={formData.siteId} 
+                                        onChange={handleInputChange} 
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '8px 12px', 
+                                            border: `1px solid ${formErrors.siteId ? '#ef4444' : '#cbd5e1'}`, 
+                                            borderRadius: '6px', 
+                                            fontSize: '14px' 
+                                        }}
+                                    >
+                                        {sites.map(site => <option key={site.id} value={site.id}>{site.nom}</option>)}
+                                    </select>
+                                    {formErrors.siteId && <span style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.siteId}</span>}
+                                </div>
                             </div>
                             <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Couleur</label><input type="color" name="couleur" value={formData.couleur} onChange={handleInputChange} style={{ width: '100%', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '6px', height: '40px' }} /></div>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Position X (px)</label><input type="number" name="positionX" value={formData.positionX} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Couleur</label>
+                                    <input type="color" name="couleur" value={formData.couleur} onChange={handleInputChange} style={{ width: '100%', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '6px', height: '40px' }} />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Position X (px)</label>
+                                    <input type="number" name="positionX" value={formData.positionX} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
                             </div>
                             <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Position Y (px)</label><input type="number" name="positionY" value={formData.positionY} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Largeur (px)</label><input type="number" name="largeur" value={formData.largeur} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
-                                <div className="form-group" style={{ marginBottom: '12px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Hauteur (px)</label><input type="number" name="hauteur" value={formData.hauteur} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Position Y (px)</label>
+                                    <input type="number" name="positionY" value={formData.positionY} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Largeur (px)</label>
+                                    <input type="number" name="largeur" value={formData.largeur} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Hauteur (px)</label>
+                                    <input type="number" name="hauteur" value={formData.hauteur} onChange={handleInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
                             </div>
                             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
-                                <button type="button" className="btn btn-outline" onClick={closeModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', fontWeight: '500', fontSize: '14px', border: '1px solid #cbd5e1', cursor: 'pointer', background: 'transparent', color: '#1a5f7a', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>Annuler</button>
-                                <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', fontWeight: '500', fontSize: '14px', border: 'none', cursor: 'pointer', background: '#1a5f7a', color: '#fff', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#0f3b5e'} onMouseLeave={(e) => e.currentTarget.style.background = '#1a5f7a'}><i className="fas fa-save"></i> Enregistrer</button>
+                                <button type="button" className="btn btn-outline" onClick={closeModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', fontWeight: '500', fontSize: '14px', border: '1px solid #cbd5e1', cursor: 'pointer', background: 'transparent', color: '#1a5f7a', transition: 'all 0.2s' }}>Annuler</button>
+                                <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', fontWeight: '500', fontSize: '14px', border: 'none', cursor: 'pointer', background: '#1a5f7a', color: '#fff', transition: 'all 0.2s' }}><i className="fas fa-save"></i> Enregistrer</button>
                             </div>
                         </form>
                     </div>
@@ -1219,17 +1505,52 @@ const Espaces = () => {
                             <button className="close" onClick={closeSiteModal} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8', padding: '0 4px' }}>&times;</button>
                         </div>
                         <form onSubmit={handleSiteSubmit}>
-                            <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Nom du site *</label><input type="text" name="nom" value={siteFormData.nom} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} required /></div>
-                            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Ville</label><input type="text" name="ville" value={siteFormData.ville} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
-                                <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Code postal</label><input type="text" name="codePostal" value={siteFormData.codePostal} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
+                            <div className="form-group" style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Nom du site *</label>
+                                <input 
+                                    type="text" 
+                                    name="nom" 
+                                    value={siteFormData.nom} 
+                                    onChange={handleSiteInputChange} 
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '8px 12px', 
+                                        border: `1px solid ${formErrors.nom ? '#ef4444' : '#cbd5e1'}`, 
+                                        borderRadius: '6px', 
+                                        fontSize: '14px' 
+                                    }} 
+                                    required 
+                                />
+                                {formErrors.nom && <span style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.nom}</span>}
                             </div>
-                            <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Adresse</label><input type="text" name="adresse" value={siteFormData.adresse} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
                             <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Latitude</label><input type="number" step="0.000001" name="latitude" value={siteFormData.latitude} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
-                                <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Longitude</label><input type="number" step="0.000001" name="longitude" value={siteFormData.longitude} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} /></div>
+                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Ville</label>
+                                    <input type="text" name="ville" value={siteFormData.ville} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Code postal</label>
+                                    <input type="text" name="codePostal" value={siteFormData.codePostal} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
                             </div>
-                            <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Description</label><textarea name="description" value={siteFormData.description} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', minHeight: '60px' }} /></div>
+                            <div className="form-group" style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Adresse</label>
+                                <input type="text" name="adresse" value={siteFormData.adresse} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                            </div>
+                            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Latitude</label>
+                                    <input type="number" step="0.000001" name="latitude" value={siteFormData.latitude} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Longitude</label>
+                                    <input type="number" step="0.000001" name="longitude" value={siteFormData.longitude} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} />
+                                </div>
+                            </div>
+                            <div className="form-group" style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Description</label>
+                                <textarea name="description" value={siteFormData.description} onChange={handleSiteInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', minHeight: '60px' }} />
+                            </div>
                             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
                                 <button type="button" className="btn btn-outline" onClick={closeSiteModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', fontWeight: '500', fontSize: '14px', border: '1px solid #cbd5e1', cursor: 'pointer', background: 'transparent', color: '#1a5f7a', transition: 'all 0.2s' }}>Annuler</button>
                                 <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', fontWeight: '500', fontSize: '14px', border: 'none', cursor: 'pointer', background: '#1a5f7a', color: '#fff', transition: 'all 0.2s' }}><i className="fas fa-save"></i> Enregistrer</button>
@@ -1250,7 +1571,21 @@ const Espaces = () => {
                         <form onSubmit={handleEtageSubmit}>
                             <div className="form-group" style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Nom de l'étage *</label>
-                                <input type="text" name="nom" value={etageFormData.nom} onChange={handleEtageInputChange} style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px' }} required />
+                                <input 
+                                    type="text" 
+                                    name="nom" 
+                                    value={etageFormData.nom} 
+                                    onChange={handleEtageInputChange} 
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '8px 12px', 
+                                        border: `1px solid ${formErrors.nom ? '#ef4444' : '#cbd5e1'}`, 
+                                        borderRadius: '6px', 
+                                        fontSize: '14px' 
+                                    }} 
+                                    required 
+                                />
+                                {formErrors.nom && <span style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.nom}</span>}
                             </div>
                             <div className="form-group" style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#475569', marginBottom: '4px' }}>Niveau</label>
