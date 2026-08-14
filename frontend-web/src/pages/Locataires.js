@@ -96,7 +96,7 @@ const Locataires = () => {
                 await api.put(`/locataires/${editingLocataire.id}`, dataToSend);
                 toast.success('Locataire modifié avec succès');
             } else {
-                await api.post('/locataires', dataToSend);
+                await api.post('/api/locataires', dataToSend);
                 toast.success('Locataire créé avec succès');
             }
             closeModal();
@@ -110,7 +110,7 @@ const Locataires = () => {
         if (!isEditable) return;
         if (!confirm('Supprimer ce locataire ?')) return;
         try {
-            await api.delete(`/locataires/${id}`);
+            awaitapi.delete(`/api/locataires/${id}`);
             toast.success('Locataire supprimé');
             loadData();
         } catch (error) {

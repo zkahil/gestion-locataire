@@ -96,7 +96,7 @@ const Paiements = () => {
                 await api.put(`/paiements/${editingPaiement.id}`, dataToSend);
                 toast.success('Paiement modifié avec succès');
             } else {
-                await api.post('/paiements', dataToSend);
+                await api.post('/api/paiements', dataToSend);
                 toast.success('Paiement enregistré avec succès');
             }
             closeModal();
@@ -111,7 +111,7 @@ const Paiements = () => {
         if (!isEditable) return;
         if (!confirm('Supprimer ce paiement ?')) return;
         try {
-            await api.delete(`/paiements/${id}`);
+            awaitapi.delete(`/api/paiements/${id}`);
             toast.success('Paiement supprimé');
             loadData();
         } catch (error) {

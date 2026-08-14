@@ -131,7 +131,7 @@ const Dashboard = () => {
     // ===== MARQUER TOUTES LES ALERTES COMME LUES =====
     const markAllAlertesAsRead = async () => {
         try {
-            await api.put('/alertes/read-all');
+            await api.put('/api/alertes/read-all');
             const updated = alertes.map(a => ({ ...a, lu: 1 }));
             setAlertes(updated);
             setAlertesNonLues(0);

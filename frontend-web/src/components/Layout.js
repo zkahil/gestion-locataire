@@ -116,7 +116,7 @@ const Layout = ({ children }) => {
 
     const markAllAsRead = async () => {
         try {
-            await api.put('/alertes/read-all');
+            await api.put('/api/alertes/read-all');
             loadNotifications();
             toast.success('Toutes les notifications marquées comme lues');
         } catch (error) {

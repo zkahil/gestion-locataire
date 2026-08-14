@@ -150,7 +150,7 @@ const Contrats = () => {
                 await api.put(`/contrats/${editingContrat.id}`, dataToSend);
                 toast.success('Contrat modifié avec succès');
             } else {
-                await api.post('/contrats', dataToSend);
+                await api.post('/api/contrats', dataToSend);
                 toast.success('Contrat créé avec succès');
             }
             closeModal();
@@ -163,7 +163,7 @@ const Contrats = () => {
     const deleteContrat = async (id) => {
         if (!confirm('Supprimer ce contrat ?')) return;
         try {
-            await api.delete(`/contrats/${id}`);
+            awaitapi.delete(`/api/contrats/${id}`);
             toast.success('Contrat supprimé');
             loadAllData();
         } catch (error) {

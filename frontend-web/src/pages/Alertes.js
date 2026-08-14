@@ -43,7 +43,7 @@ const Alertes = () => {
 
     const markAllAsRead = async () => {
         try {
-            await api.put('/alertes/read-all');
+            await api.put('/api/alertes/read-all');
             toast.success('Toutes les alertes marquées comme lues');
             loadData();
         } catch (error) {
@@ -55,7 +55,7 @@ const Alertes = () => {
         if (!isEditable) return;
         if (!confirm('Supprimer cette alerte ?')) return;
         try {
-            await api.delete(`/alertes/${id}`);
+            awaitapi.delete(`/api/alertes/${id}`);
             toast.success('Alerte supprimée');
             loadData();
         } catch (error) {
@@ -89,7 +89,7 @@ const Alertes = () => {
         e.preventDefault();
         if (!isEditable) return;
         try {
-            await api.post('/alertes', formData);
+            await api.post('/api/alertes', formData);
             toast.success('Alerte créée avec succès');
             closeModal();
             loadData();

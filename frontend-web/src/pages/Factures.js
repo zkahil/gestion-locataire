@@ -97,7 +97,7 @@ const Factures = () => {
             } else {
                 // Générer un numéro unique
                 const numero = 'F' + new Date().getFullYear() + '-' + String(Date.now()).slice(-4);
-                await api.post('/factures', { ...dataToSend, numero });
+                await api.post('/api/factures', { ...dataToSend, numero });
                 toast.success('Facture générée avec succès');
             }
             closeModal();
@@ -110,7 +110,7 @@ const Factures = () => {
     const deleteFacture = async (id) => {
         if (!confirm('Supprimer cette facture ?')) return;
         try {
-            await api.delete(`/factures/${id}`);
+            awaitapi.delete(`/api/factures/${id}`);
             toast.success('Facture supprimée');
             loadAllData();
         } catch (error) {

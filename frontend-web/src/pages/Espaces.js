@@ -275,7 +275,7 @@ const Espaces = () => {
                 await api.put(`/espaces/${editingEspace.id}`, dataToSend);
                 toast.success('Espace modifié avec succès');
             } else {
-                await api.post('/espaces', dataToSend);
+                await api.post('/api/espaces', dataToSend);
                 toast.success('Espace créé avec succès');
             }
             closeModal();
@@ -299,7 +299,7 @@ const Espaces = () => {
                 await api.put(`/sites/${editingSite.id}`, dataToSend);
                 toast.success('Site modifié avec succès');
             } else {
-                await api.post('/sites', dataToSend);
+                await api.post('/api/sites', dataToSend);
                 toast.success('Site créé avec succès');
             }
             closeSiteModal();
@@ -324,7 +324,7 @@ const Espaces = () => {
                 await api.put(`/etages/${editingEtage.id}`, dataToSend);
                 toast.success('Étage modifié avec succès');
             } else {
-                await api.post('/etages', dataToSend);
+                await api.post('/api/etages', dataToSend);
                 toast.success('Étage créé avec succès');
             }
             closeEtageModal();
@@ -339,7 +339,7 @@ const Espaces = () => {
         if (!isEditable) return;
         if (!confirm('Supprimer cet espace ?')) return;
         try {
-            await api.delete(`/espaces/${id}`);
+            awaitapi.delete(`/api/espaces/${id}`);
             toast.success('Espace supprimé');
             loadAllData();
         } catch (error) {
@@ -354,7 +354,7 @@ const Espaces = () => {
         }
         if (!confirm('Supprimer ce site et tous ses espaces ?')) return;
         try {
-            await api.delete(`/sites/${id}`);
+            awaitapi.delete(`/api/sites/${id}`);
             toast.success('Site supprimé');
             loadAllData();
         } catch (error) {
@@ -366,7 +366,7 @@ const Espaces = () => {
         if (!isEditable) return;
         if (!confirm('Supprimer cet étage et tous ses espaces ?')) return;
         try {
-            await api.delete(`/etages/${id}`);
+            awaitapi.delete(`/api/etages/${id}`);
             toast.success('Étage supprimé');
             loadAllData();
         } catch (error) {

@@ -106,7 +106,7 @@ const Cautions = () => {
                 await api.put(`/cautions/${editingCaution.id}`, dataToSend);
                 toast.success('Caution modifiée avec succès');
             } else {
-                await api.post('/cautions', dataToSend);
+                await api.post('/api/cautions', dataToSend);
                 toast.success('Caution ajoutée avec succès');
             }
             closeModal();
@@ -120,7 +120,7 @@ const Cautions = () => {
         if (!isEditable) return;
         if (!confirm('Supprimer cette caution ?')) return;
         try {
-            await api.delete(`/cautions/${id}`);
+            awaitapi.delete(`/api/cautions/${id}`);
             toast.success('Caution supprimée');
             loadData();
         } catch (error) {
