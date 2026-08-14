@@ -7,7 +7,7 @@ const FacturesScreen = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
-        api.get('/factures')
+        api.get('/api/factures')
             .then(res => setData(res.data.data || []))
             .catch(console.error)
             .finally(() => setLoading(false));

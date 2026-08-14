@@ -28,7 +28,7 @@ const Paiements = () => {
 
     const loadData = async () => {
         try {
-            const res = await api.get('/paiements');
+            const res = await api.get('/api/paiements');
             setData(res.data.data || []);
         } catch (error) {
             toast.error('Erreur de chargement');
@@ -38,7 +38,7 @@ const Paiements = () => {
 
     const loadFactures = async () => {
         try {
-            const res = await api.get('/factures');
+            const res = await api.get('/api/factures');
             setFactures(res.data.data || []);
         } catch (error) {
             console.error('Erreur chargement factures');

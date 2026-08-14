@@ -7,7 +7,7 @@ const EspacesScreen = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
-        api.get('/espaces')
+        api.get('/api/espaces')
             .then(res => setData(res.data.data || []))
             .catch(console.error)
             .finally(() => setLoading(false));

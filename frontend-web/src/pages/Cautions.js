@@ -31,7 +31,7 @@ const Cautions = () => {
 
     const loadData = async () => {
         try {
-            const res = await api.get('/cautions');
+            const res = await api.get('/api/cautions');
             setData(res.data.data || []);
         } catch (error) {
             toast.error('Erreur de chargement');
@@ -41,7 +41,7 @@ const Cautions = () => {
 
     const loadContrats = async () => {
         try {
-            const res = await api.get('/contrats');
+            const res = await api.get('/api/contrats');
             setContrats(res.data.data || []);
         } catch (error) {
             console.error('Erreur chargement contrats');

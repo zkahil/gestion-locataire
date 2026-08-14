@@ -30,9 +30,9 @@ const Factures = () => {
     const loadAllData = async () => {
         try {
             const [facturesRes, contratsRes, locatairesRes] = await Promise.all([
-                api.get('/factures'),
-                api.get('/contrats'),
-                api.get('/locataires')
+                api.get('/api/factures'),
+                api.get('/api/contrats'),
+                api.get('/api/locataires')
             ]);
             setData(facturesRes.data.data || []);
             setContrats(contratsRes.data.data || []);

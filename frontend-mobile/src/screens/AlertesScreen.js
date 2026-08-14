@@ -7,7 +7,7 @@ const AlertesScreen = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
-        api.get('/alertes')
+        api.get('/api/alertes')
             .then(res => setData(res.data.data || []))
             .catch(console.error)
             .finally(() => setLoading(false));

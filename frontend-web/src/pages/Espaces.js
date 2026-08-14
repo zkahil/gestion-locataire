@@ -64,9 +64,9 @@ const Espaces = () => {
     const loadAllData = async () => {
         try {
             const [sitesRes, espacesRes, etagesRes] = await Promise.all([
-                api.get('/sites'),
-                api.get('/espaces'),
-                api.get('/etages')
+                api.get('/api/sites'),
+                api.get('/api/espaces'),
+                api.get('/api/etages')
             ]);
             
             const sitesData = sitesRes.data.data || [];

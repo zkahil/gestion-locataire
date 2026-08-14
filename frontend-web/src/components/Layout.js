@@ -96,7 +96,7 @@ const Layout = ({ children }) => {
 
     const loadNotifications = async () => {
         try {
-            const res = await api.get('/alertes');
+            const res = await api.get('/api/alertes');
             const data = res.data.data || [];
             setNotifications(data.slice(0, 10));
             setUnreadCount(data.filter(a => a.lu === 0 || a.lu === false).length);

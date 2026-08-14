@@ -23,7 +23,7 @@ const Alertes = () => {
 
     const loadData = async () => {
         try {
-            const res = await api.get('/alertes');
+            const res = await api.get('/api/alertes');
             setData(res.data.data || []);
         } catch (error) {
             toast.error('Erreur de chargement');

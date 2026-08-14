@@ -7,7 +7,7 @@ const ContratsScreen = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
-        api.get('/contrats')
+        api.get('/api/contrats')
             .then(res => setData(res.data.data || []))
             .catch(console.error)
             .finally(() => setLoading(false));

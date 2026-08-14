@@ -31,7 +31,7 @@ const Locataires = () => {
 
     const loadData = async () => {
         try {
-            const res = await api.get('/locataires');
+            const res = await api.get('/api/locataires');
             setData(res.data.data || []);
         } catch (error) {
             toast.error('Erreur de chargement');

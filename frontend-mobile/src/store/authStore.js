@@ -25,7 +25,7 @@ const useAuthStore = create((set) => ({
         const token = await AsyncStorage.getItem('token');
         if (!token) return;
         try {
-            const res = await api.get('/auth/me');
+            const res = await api.get('/api/auth/me');
             set({ user: res.data.user, token });
         } catch { await AsyncStorage.removeItem('token'); set({ user: null, token: null }); }
     }

@@ -7,7 +7,7 @@ const CautionsScreen = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
-        api.get('/cautions')
+        api.get('/api/cautions')
             .then(res => setData(res.data.data || []))
             .catch(console.error)
             .finally(() => setLoading(false));

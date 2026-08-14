@@ -14,10 +14,10 @@ const DashboardScreen = () => {
         const load = async () => {
             try {
                 const [e, l, c, f] = await Promise.all([
-                    api.get('/espaces'),
-                    api.get('/locataires'),
-                    api.get('/contrats'),
-                    api.get('/factures')
+                    api.get('/api/espaces'),
+                    api.get('/api/locataires'),
+                    api.get('/api/contrats'),
+                    api.get('/api/factures')
                 ]);
                 setStats({
                     espaces: e.data.data.length,

@@ -45,9 +45,9 @@ const Contrats = () => {
     const loadAllData = async () => {
         try {
             const [contratsRes, espacesRes, locatairesRes] = await Promise.all([
-                api.get('/contrats'),
-                api.get('/espaces'),
-                api.get('/locataires')
+                api.get('/api/contrats'),
+                api.get('/api/espaces'),
+                api.get('/api/locataires')
             ]);
             setData(contratsRes.data.data || []);
             setEspaces(espacesRes.data.data || []);

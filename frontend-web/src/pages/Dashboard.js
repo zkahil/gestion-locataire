@@ -61,12 +61,12 @@ const Dashboard = () => {
     const loadData = async () => {
         try {
             const [sitesRes, espacesRes, etagesRes, locatairesRes, contratsRes, facturesRes] = await Promise.all([
-                api.get('/sites'),
-                api.get('/espaces'),
-                api.get('/etages'),
-                api.get('/locataires'),
-                api.get('/contrats'),
-                api.get('/factures')
+                api.get('/api/sites'),
+                api.get('/api/espaces'),
+                api.get('/api/etages'),
+                api.get('/api/locataires'),
+                api.get('/api/contrats'),
+                api.get('/api/factures')
             ]);
             
             const sitesData = sitesRes.data.data || [];
@@ -104,7 +104,7 @@ const Dashboard = () => {
     // ===== CHARGEMENT DES ALERTES =====
     const loadAlertes = async () => {
         try {
-            const res = await api.get('/alertes');
+            const res = await api.get('/api/alertes');
             const data = res.data.data || [];
             setAlertes(data);
             setAlertesNonLues(data.filter(a => a.lu === 0).length);
