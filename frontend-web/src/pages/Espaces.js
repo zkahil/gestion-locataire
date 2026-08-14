@@ -272,7 +272,7 @@ const Espaces = () => {
             };
 
             if (editingEspace) {
-                await api.put(`/espaces/${editingEspace.id}`, dataToSend);
+                await api.put(`/api/espaces/${editingEspace.id}`, dataToSend);
                 toast.success('Espace modifié avec succès');
             } else {
                 await api.post('/api/espaces', dataToSend);
@@ -296,7 +296,7 @@ const Espaces = () => {
             };
 
             if (editingSite) {
-                await api.put(`/sites/${editingSite.id}`, dataToSend);
+                await api.put(`/api/sites/${editingSite.id}`, dataToSend);
                 toast.success('Site modifié avec succès');
             } else {
                 await api.post('/api/sites', dataToSend);
@@ -321,7 +321,7 @@ const Espaces = () => {
             };
 
             if (editingEtage) {
-                await api.put(`/etages/${editingEtage.id}`, dataToSend);
+                await api.put(`/api/etages/${editingEtage.id}`, dataToSend);
                 toast.success('Étage modifié avec succès');
             } else {
                 await api.post('/api/etages', dataToSend);

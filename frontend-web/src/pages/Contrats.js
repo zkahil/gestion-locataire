@@ -147,7 +147,7 @@ const Contrats = () => {
             };
 
             if (editingContrat) {
-                await api.put(`/contrats/${editingContrat.id}`, dataToSend);
+                await api.put(`/api/contrats/${editingContrat.id}`, dataToSend);
                 toast.success('Contrat modifié avec succès');
             } else {
                 await api.post('/api/contrats', dataToSend);
@@ -174,7 +174,7 @@ const Contrats = () => {
     const resilierContrat = async (id) => {
         if (!confirm('Résilier ce contrat ?')) return;
         try {
-            await api.put(`/contrats/${id}`, { statut: 'resilie' });
+            await api.put(`/api/contrats/${id}`, { statut: 'resilie' });
             toast.success('Contrat résilié');
             loadAllData();
         } catch (error) {

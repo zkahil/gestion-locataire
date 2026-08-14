@@ -93,7 +93,7 @@ const Paiements = () => {
             };
 
             if (editingPaiement) {
-                await api.put(`/paiements/${editingPaiement.id}`, dataToSend);
+                await api.put(`/api/paiements/${editingPaiement.id}`, dataToSend);
                 toast.success('Paiement modifié avec succès');
             } else {
                 await api.post('/api/paiements', dataToSend);

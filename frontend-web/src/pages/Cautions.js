@@ -103,7 +103,7 @@ const Cautions = () => {
             };
 
             if (editingCaution) {
-                await api.put(`/cautions/${editingCaution.id}`, dataToSend);
+                await api.put(`/api/cautions/${editingCaution.id}`, dataToSend);
                 toast.success('Caution modifiée avec succès');
             } else {
                 await api.post('/api/cautions', dataToSend);

@@ -93,7 +93,7 @@ const Locataires = () => {
             const dataToSend = { ...formData };
 
             if (editingLocataire) {
-                await api.put(`/locataires/${editingLocataire.id}`, dataToSend);
+                await api.put(`/api/locataires/${editingLocataire.id}`, dataToSend);
                 toast.success('Locataire modifié avec succès');
             } else {
                 await api.post('/api/locataires', dataToSend);

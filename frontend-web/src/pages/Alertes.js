@@ -33,7 +33,7 @@ const Alertes = () => {
 
     const markAsRead = async (id) => {
         try {
-            await api.put(`/alertes/${id}/read`);
+            await api.put(`/api/alertes/${id}/read`);
             toast.success('Alerte marquée comme lue');
             loadData();
         } catch (error) {

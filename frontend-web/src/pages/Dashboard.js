@@ -117,7 +117,7 @@ const Dashboard = () => {
     // ===== MARQUER UNE ALERTE COMME LUE =====
     const markAlerteAsRead = async (id) => {
         try {
-            await api.put(`/alertes/${id}/read`);
+            await api.put(`/api/alertes/${id}/read`);
             const updated = alertes.map(a => 
                 a.id === id ? { ...a, lu: 1 } : a
             );

@@ -92,7 +92,7 @@ const Factures = () => {
             };
 
             if (editingFacture) {
-                await api.put(`/factures/${editingFacture.id}`, dataToSend);
+                await api.put(`/api/factures/${editingFacture.id}`, dataToSend);
                 toast.success('Facture modifiée avec succès');
             } else {
                 // Générer un numéro unique
